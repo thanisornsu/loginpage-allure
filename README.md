@@ -18,17 +18,20 @@ A modern, clean test automation framework for SwagLabs login page using Playwrig
 ## 🛠️ Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd swaglabs-allure-cicd
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Install Playwright browsers:
+
 ```bash
 npx playwright install chromium
 ```
@@ -36,21 +39,25 @@ npx playwright install chromium
 ## 🧪 Running Tests
 
 ### Run all tests:
+
 ```bash
 npm test
 ```
 
 ### Run tests in headed mode (see browser):
+
 ```bash
 npm run test:headed
 ```
 
 ### Run tests with UI mode:
+
 ```bash
 npm run test:ui
 ```
 
 ### Run tests in debug mode:
+
 ```bash
 npm run test:debug
 ```
@@ -58,15 +65,18 @@ npm run test:debug
 ## 📊 Allure Reports
 
 ### Generate and view Allure report locally:
+
 ```bash
 npm run report
 ```
 
 This command will:
+
 1. Generate the Allure report from test results
 2. Open it in your default browser
 
 ### Generate report only (without opening):
+
 ```bash
 npm run report:generate
 ```
@@ -131,6 +141,7 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) automatically:
 To deploy to Netlify instead of (or in addition to) GitHub Pages:
 
 1. **Option A: Automatic via Netlify CLI in GitHub Actions**
+
    - Add `NETLIFY_AUTH_TOKEN` and `NETLIFY_SITE_ID` as GitHub Secrets
    - The workflow will automatically deploy to Netlify
 
@@ -209,4 +220,3 @@ ISC
 - [Playwright](https://playwright.dev/) - Modern web testing framework
 - [Allure Framework](https://allure.qatools.ru/) - Test reporting framework
 - [SwagLabs](https://www.saucedemo.com/) - Demo application for testing
-
