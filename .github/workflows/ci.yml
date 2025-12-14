@@ -57,6 +57,29 @@ jobs:
           path: allure-report-screenshot.png
           retention-days: 30
 
+      - name: Add Screenshot to Job Summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            const screenshotPath = 'allure-report-screenshot.png';
+            if (fs.existsSync(screenshotPath)) {
+              const imageBuffer = fs.readFileSync(screenshotPath);
+              const imageBase64 = imageBuffer.toString('base64');
+              
+              const summary = `## 📊 Allure Test Report Screenshot
+              
+![Allure Report](data:image/png;base64,${imageBase64})
+
+**📥 Download Full Report:** Check the Artifacts section below or [click here](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              `;
+              
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+            }
+
       - name: Comment PR with Screenshot
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
