@@ -1,0 +1,80 @@
+name: CI - Playwright Tests with Allure
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Run Tests and Generate Allure Report
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: npm test
+        continue-on-error: true
+
+      - name: Generate Allure Report
+        if: always()
+        run: |
+          npm run report:generate
+
+      - name: Upload Allure Report as Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report/
+          retention-days: 30
+
+      - name: Generate Allure Report Screenshot
+        if: always()
+        run: |
+          node scripts/screenshot-report.js
+
+      - name: Upload Allure Report Screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-screenshot
+          path: allure-report-screenshot.png
+          retention-days: 30
+
+      - name: Comment PR with Screenshot
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            const screenshotPath = 'allure-report-screenshot.png';
+            if (fs.existsSync(screenshotPath)) {
+              const imageBuffer = fs.readFileSync(screenshotPath);
+              const imageBase64 = imageBuffer.toString('base64');
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 📊 Allure Test Report\n\n![Allure Report](data:image/png;base64,${imageBase64})\n\n[Download Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`
+              });
+            }
+
