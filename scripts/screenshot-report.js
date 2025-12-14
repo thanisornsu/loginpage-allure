@@ -29,8 +29,38 @@ const fs = require('fs');
     
     await page.goto(fileUrl, { waitUntil: 'networkidle', timeout: 30000 });
     
-    // Wait for Allure charts and widgets to render
-    await page.waitForTimeout(5000);
+    // Wait for Allure report to fully load - wait for "Loading..." text to disappear
+    console.log('Waiting for Allure report to load...');
+    try {
+      // Wait for loading indicators to disappear
+      await page.waitForFunction(
+        () => {
+          const loadingElements = document.querySelectorAll('*');
+          let hasLoading = false;
+          loadingElements.forEach(el => {
+            if (el.textContent && el.textContent.includes('Loading...')) {
+              hasLoading = true;
+            }
+          });
+          return !hasLoading;
+        },
+        { timeout: 30000 }
+      );
+      console.log('Loading indicators disappeared');
+    } catch (e) {
+      console.log('Timeout waiting for loading indicators, continuing...');
+    }
+    
+    // Wait for key elements to be visible (test cases count, charts, etc.)
+    try {
+      await page.waitForSelector('.widget', { timeout: 10000 });
+      console.log('Widgets loaded');
+    } catch (e) {
+      console.log('Widgets not found, continuing...');
+    }
+    
+    // Additional wait for charts and widgets to fully render
+    await page.waitForTimeout(3000);
     
     // Scroll to top to capture the summary view
     await page.evaluate(() => window.scrollTo(0, 0));
