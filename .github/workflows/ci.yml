@@ -66,21 +66,21 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const path = require('path');
             
             const screenshotPath = 'allure-report-screenshot.png';
             if (fs.existsSync(screenshotPath)) {
-              const imageBuffer = fs.readFileSync(screenshotPath);
-              const imageBase64 = imageBuffer.toString('base64');
-              
               const repository = process.env.REPOSITORY;
               const runId = process.env.RUN_ID;
               
               const summary = `## 📊 Allure Test Report Screenshot
               
-![Allure Report](data:image/png;base64,${imageBase64})
+✅ **Screenshot generated successfully!**
 
-**📥 Download Full Report:** Check the Artifacts section below or [click here](https://github.com/${repository}/actions/runs/${runId})
+📥 **Download the screenshot:** Check the **Artifacts** section on the right → Download \`allure-report-screenshot\`
+
+📊 **View full report:** [Download Allure Report](https://github.com/${repository}/actions/runs/${runId})
+
+> 💡 **Tip:** The screenshot shows a visual summary of all test results, including pass/fail status and execution charts.
               `;
               
               fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
