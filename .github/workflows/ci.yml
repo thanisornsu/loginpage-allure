@@ -10,6 +10,10 @@ jobs:
   test:
     name: Run Tests and Generate Allure Report
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
 
     steps:
       - name: Checkout code
@@ -84,20 +88,24 @@ jobs:
       - name: Comment PR with Screenshot
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
+        env:
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
         with:
           script: |
             const fs = require('fs');
-            const path = require('path');
 
             const screenshotPath = 'allure-report-screenshot.png';
             if (fs.existsSync(screenshotPath)) {
               const imageBuffer = fs.readFileSync(screenshotPath);
               const imageBase64 = imageBuffer.toString('base64');
+              const repository = process.env.REPOSITORY;
+              const runId = process.env.RUN_ID;
               
               github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `## 📊 Allure Test Report\n\n![Allure Report](data:image/png;base64,${imageBase64})\n\n[Download Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`
+                body: `## 📊 Allure Test Report\n\n![Allure Report](data:image/png;base64,${imageBase64})\n\n[Download Full Report](https://github.com/${repository}/actions/runs/${runId})`
               });
             }
