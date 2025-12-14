@@ -2,15 +2,15 @@ name: CI - Playwright Tests with Allure
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
   test:
     name: Run Tests and Generate Allure Report
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,8 +18,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -66,22 +66,17 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            
+
             const screenshotPath = 'allure-report-screenshot.png';
             if (fs.existsSync(screenshotPath)) {
               const repository = process.env.REPOSITORY;
               const runId = process.env.RUN_ID;
               
-              const summary = `## 📊 Allure Test Report Screenshot
-              
-✅ **Screenshot generated successfully!**
-
-📥 **Download the screenshot:** Check the **Artifacts** section on the right → Download \`allure-report-screenshot\`
-
-📊 **View full report:** [Download Allure Report](https://github.com/${repository}/actions/runs/${runId})
-
-> 💡 **Tip:** The screenshot shows a visual summary of all test results, including pass/fail status and execution charts.
-              `;
+              const summary = '## 📊 Allure Test Report Screenshot\n\n' +
+                '✅ **Screenshot generated successfully!**\n\n' +
+                '📥 **Download the screenshot:** Check the **Artifacts** section on the right → Download `allure-report-screenshot`\n\n' +
+                `📊 **View full report:** [Download Allure Report](https://github.com/${repository}/actions/runs/${runId})\n\n` +
+                '> 💡 **Tip:** The screenshot shows a visual summary of all test results, including pass/fail status and execution charts.';
               
               fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
             }
@@ -93,7 +88,7 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
-            
+
             const screenshotPath = 'allure-report-screenshot.png';
             if (fs.existsSync(screenshotPath)) {
               const imageBuffer = fs.readFileSync(screenshotPath);
@@ -106,4 +101,3 @@ jobs:
                 body: `## 📊 Allure Test Report\n\n![Allure Report](data:image/png;base64,${imageBase64})\n\n[Download Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`
               });
             }
-
