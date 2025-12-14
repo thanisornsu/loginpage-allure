@@ -115,12 +115,31 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) automatically:
 4. Generates screenshot of Allure report summary
 5. Uploads screenshot as artifact (visible in GitHub Actions UI)
 6. Comments on PRs with the report screenshot
+7. **Deploys report to GitHub Pages** (for main branch) - View online at: `https://<username>.github.io/loginpage-allure/`
 
 ### Viewing Reports in CI/CD
 
-- **Artifacts**: Download the `allure-report` artifact from the workflow run
-- **Screenshot**: View the `allure-report-screenshot` artifact to see a visual summary
-- **PR Comments**: For pull requests, the screenshot is automatically posted as a comment
+- **🌐 Online Report (GitHub Pages)**: After pushing to `main` branch, the report is automatically deployed and accessible at:
+  - `https://<your-username>.github.io/loginpage-allure/`
+  - Check the workflow run for the exact URL
+- **📥 Artifacts**: Download the `allure-report` artifact from the workflow run
+- **📸 Screenshot**: View the `allure-report-screenshot` artifact to see a visual summary
+- **💬 PR Comments**: For pull requests, the screenshot is automatically posted as a comment
+
+### 📦 Alternative: Deploy to Netlify
+
+To deploy to Netlify instead of (or in addition to) GitHub Pages:
+
+1. **Option A: Automatic via Netlify CLI in GitHub Actions**
+   - Add `NETLIFY_AUTH_TOKEN` and `NETLIFY_SITE_ID` as GitHub Secrets
+   - The workflow will automatically deploy to Netlify
+
+2. **Option B: Manual Netlify Setup**
+   - Go to [Netlify](https://www.netlify.com/)
+   - Connect your GitHub repository
+   - Set build command: `echo "Report already generated"`
+   - Set publish directory: `allure-report`
+   - Netlify will auto-deploy on every push
 
 ## 🏗️ Page Object Model
 

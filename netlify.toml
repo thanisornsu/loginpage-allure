@@ -1,0 +1,10 @@
+# Netlify configuration for Allure Report deployment
+[build]
+  publish = "allure-report"
+  command = "echo 'Report already generated'"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+

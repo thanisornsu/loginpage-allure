@@ -80,6 +80,7 @@ jobs:
                 '✅ **Screenshot generated successfully!**\n\n' +
                 '📥 **Download the screenshot:** Check the **Artifacts** section on the right → Download `allure-report-screenshot`\n\n' +
                 `📊 **View full report:** [Download Allure Report](https://github.com/${repository}/actions/runs/${runId})\n\n` +
+                '🌐 **View online:** After deployment, check GitHub Pages or Netlify for the live report\n\n' +
                 '> 💡 **Tip:** The screenshot shows a visual summary of all test results, including pass/fail status and execution charts.';
               
               fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
@@ -109,3 +110,35 @@ jobs:
                 body: `## 📊 Allure Test Report\n\n![Allure Report](data:image/png;base64,${imageBase64})\n\n[Download Full Report](https://github.com/${repository}/actions/runs/${runId})`
               });
             }
+
+  deploy-report:
+    name: Deploy Allure Report
+    runs-on: ubuntu-latest
+    needs: test
+    if: always() && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Allure Report Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: allure-report/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
