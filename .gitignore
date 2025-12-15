@@ -10,3 +10,7 @@ playwright/.cache/
 .env
 .env.local
 
+# Thai documentation files (kept locally)
+PROJECT_SUMMARY_TH.md
+NETLIFY_SETUP_TH.md
+
