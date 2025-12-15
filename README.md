@@ -169,32 +169,51 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) automatically:
 4. Generates screenshot of Allure report summary
 5. Uploads screenshot as artifact (visible in GitHub Actions UI)
 6. Comments on PRs with the report screenshot
-7. **Deploys report to GitHub Pages** (for main branch) - View online at: `https://<username>.github.io/loginpage-allure/`
+7. **Deploys report to Netlify** (for main branch, if configured) - View online at your Netlify site URL
 
 ### Viewing Reports in CI/CD
 
-- **🌐 Online Report (GitHub Pages)**: After pushing to `main` branch, the report is automatically deployed and accessible at:
-  - `https://<your-username>.github.io/loginpage-allure/`
-  - Check the workflow run for the exact URL
+- **🌐 Online Report (Netlify)**: After pushing to `main` branch, the report is automatically deployed to Netlify (if configured)
+  - Check your Netlify dashboard for the live URL
+  - URL format: `https://<your-site-name>.netlify.app`
 - **📥 Artifacts**: Download the `allure-report` artifact from the workflow run
 - **📸 Screenshot**: View the `allure-report-screenshot` artifact to see a visual summary
 - **💬 PR Comments**: For pull requests, the screenshot is automatically posted as a comment
 
-### 📦 Alternative: Deploy to Netlify
+### 📦 Setup Netlify Deployment
 
-To deploy to Netlify instead of (or in addition to) GitHub Pages:
+**วิธีตั้งค่า Netlify สำหรับ Deploy Report อัตโนมัติ:**
 
-1. **Option A: Automatic via Netlify CLI in GitHub Actions**
+1. **สร้าง Netlify Account และ Site**
+   - ไปที่ [Netlify](https://www.netlify.com/) และสร้าง account
+   - สร้าง site ใหม่ (New site from Git) หรือสร้าง site แบบ manual
 
-   - Add `NETLIFY_AUTH_TOKEN` and `NETLIFY_SITE_ID` as GitHub Secrets
-   - The workflow will automatically deploy to Netlify
+2. **สร้าง Access Token**
+   - ไปที่: https://app.netlify.com/user/applications#personal-access-tokens
+   - คลิก "New access token"
+   - ตั้งชื่อ token (เช่น: "GitHub Actions Deploy")
+   - คัดลอก token ที่ได้ (จะแสดงแค่ครั้งเดียว!)
 
-2. **Option B: Manual Netlify Setup**
-   - Go to [Netlify](https://www.netlify.com/)
-   - Connect your GitHub repository
-   - Set build command: `echo "Report already generated"`
-   - Set publish directory: `allure-report`
-   - Netlify will auto-deploy on every push
+3. **หา Site ID**
+   - ไปที่ Site settings → General → Site details
+   - คัดลอก "Site ID"
+
+4. **เพิ่ม Secrets ใน GitHub**
+   - ไปที่ Repository Settings → Secrets and variables → Actions
+   - คลิก "New repository secret"
+   - เพิ่ม 2 secrets:
+     - **Name**: `NETLIFY_AUTH_TOKEN` → **Value**: token ที่คัดลอกมา
+     - **Name**: `NETLIFY_SITE_ID` → **Value**: Site ID ที่คัดลอกมา
+
+5. **ทดสอบ**
+   - Push code ไปที่ `main` branch
+   - Workflow จะ deploy report ไปที่ Netlify อัตโนมัติ
+   - ตรวจสอบ URL ใน Netlify dashboard
+
+**หมายเหตุ:** 
+- Report จะ deploy ทุกครั้งที่ push ไปที่ `main` branch
+- ถ้ายังไม่ได้ตั้งค่า Netlify secrets, workflow จะยังทำงานได้แต่จะข้าม deployment
+- คุณยังสามารถดาวน์โหลด report จาก Artifacts ได้
 
 ## 🏗️ Page Object Model
 

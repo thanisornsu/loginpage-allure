@@ -157,7 +157,7 @@ jobs:
             echo "   6. Repository Settings → Secrets and variables → Actions"
             exit 0
           fi
-          
+
           netlify deploy --prod --dir=allure-report --message="Deploy Allure Report from GitHub Actions - ${{ github.sha }}"
           echo "✅ Report deployed successfully to Netlify!"
           echo "🌐 Check your Netlify dashboard for the live URL"
