@@ -5,14 +5,17 @@
 ### วิธีที่ 1: สร้าง Site แบบ Manual (แนะนำ)
 
 1. **ไปที่ Netlify Dashboard**
+
    - เปิด: https://app.netlify.com/
    - คลิก **"Add new project"** (ปุ่มสีเขียว)
 
 2. **เลือก "Deploy manually"**
+
    - เลือก **"Deploy manually"** หรือ **"Import an existing project"**
    - เลือก **"Deploy manually"**
 
 3. **ตั้งชื่อ Site**
+
    - ตั้งชื่อ site (เช่น: `loginpage-allure-report`)
    - หรือใช้ชื่อที่ Netlify สร้างให้อัตโนมัติ
 
@@ -35,10 +38,12 @@
 ## ขั้นตอนที่ 2: สร้าง Access Token
 
 1. **ไปที่ Personal Access Tokens**
+
    - เปิด: https://app.netlify.com/user/applications#personal-access-tokens
    - หรือ: คลิกที่ Profile (มุมขวาบน) → **"User settings"** → **"Applications"** → **"Personal access tokens"**
 
 2. **สร้าง Token ใหม่**
+
    - คลิก **"New access token"**
    - ตั้งชื่อ (เช่น: `GitHub Actions Deploy`)
    - คลิก **"Generate token"**
@@ -51,13 +56,16 @@
 ## ขั้นตอนที่ 3: เพิ่ม Secrets ใน GitHub
 
 1. **ไปที่ Repository Settings**
+
    - เปิด: https://github.com/thanisornsu/loginpage-allure/settings
    - หรือ: คลิก **"Settings"** ใน repository
 
 2. **ไปที่ Secrets**
+
    - ในเมนูด้านซ้าย: **"Secrets and variables"** → **"Actions"**
 
 3. **เพิ่ม NETLIFY_AUTH_TOKEN**
+
    - คลิก **"New repository secret"**
    - **Name**: `NETLIFY_AUTH_TOKEN`
    - **Secret**: วาง token ที่คัดลอกมาจาก Netlify
@@ -72,11 +80,13 @@
 ## ขั้นตอนที่ 4: ทดสอบ Deployment
 
 1. **Push code ไปที่ main branch**
+
    ```bash
    git push origin main
    ```
 
 2. **ตรวจสอบ GitHub Actions**
+
    - ไปที่: https://github.com/thanisornsu/loginpage-allure/actions
    - ดู workflow run
    - ควรเห็น step "Deploy to Netlify" สำเร็จ
@@ -90,6 +100,7 @@
 ## 🔍 วิธีหา Site ID (ถ้ายังหาไม่เจอ)
 
 ### จาก Netlify Dashboard:
+
 1. คลิกที่ site ของคุณ
 2. ดูที่ URL: `https://app.netlify.com/sites/<site-name>/overview`
 3. Site ID อาจจะอยู่ใน URL หรือดูได้จาก:
@@ -97,6 +108,7 @@
    - หรือ **Site settings** → **Build & deploy** → **Build settings**
 
 ### จาก Netlify CLI:
+
 ```bash
 # ติดตั้ง Netlify CLI (ถ้ายังไม่มี)
 npm install -g netlify-cli
@@ -109,6 +121,7 @@ netlify sites:list
 ```
 
 ### จาก API:
+
 ```bash
 # ใช้ curl (ต้องมี token)
 curl -H "Authorization: Bearer YOUR_TOKEN" https://api.netlify.com/api/v1/sites
@@ -119,6 +132,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" https://api.netlify.com/api/v1/sites
 หลังจากเพิ่ม Secrets แล้ว:
 
 1. **ตรวจสอบใน GitHub**
+
    - ไปที่: Settings → Secrets and variables → Actions
    - ควรเห็น 2 secrets:
      - ✅ `NETLIFY_AUTH_TOKEN`
@@ -132,12 +146,14 @@ curl -H "Authorization: Bearer YOUR_TOKEN" https://api.netlify.com/api/v1/sites
 ## 🆘 Troubleshooting
 
 ### ถ้า Deploy ไม่สำเร็จ:
+
 - ตรวจสอบว่า Secrets ถูกต้อง
 - ตรวจสอบว่า Site ID ถูกต้อง
 - ดู logs ใน GitHub Actions
 - ดู logs ใน Netlify Dashboard
 
 ### ถ้าหา Site ID ไม่เจอ:
+
 - ลองสร้าง site ใหม่
 - หรือใช้ Site ที่มีอยู่แล้ว (golden-sfogliatella-daf89b)
 - Site ID จะอยู่ใน Site settings → General
@@ -147,4 +163,3 @@ curl -H "Authorization: Bearer YOUR_TOKEN" https://api.netlify.com/api/v1/sites
 - Site ID จะเป็นรูปแบบ: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
 - Access Token จะเป็นรูปแบบ: `nfp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
 - ทั้งสองต้องถูกต้องถึงจะ deploy ได้
-
