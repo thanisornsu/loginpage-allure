@@ -83,47 +83,47 @@ npm run report:generate
 
 ### 📥 View Downloaded Report from GitHub Artifacts:
 
-หลังจากดาวน์โหลด `allure-report` artifact จาก GitHub Actions:
+After downloading the `allure-report` artifact from GitHub Actions:
 
-**วิธีที่ 1: ใช้ Script ที่เตรียมไว้ (ง่ายที่สุด)**
+**Method 1: Use Prepared Script (Easiest)**
 
 ```bash
-# 1. แตกไฟล์ที่ดาวน์โหลดมา (ถ้ายังไม่ได้แตก)
-# 2. วางโฟลเดอร์ allure-report ไว้ในโปรเจค
-# 3. รันคำสั่ง:
+# 1. Extract the downloaded file (if not already extracted)
+# 2. Place the allure-report folder in the project
+# 3. Run the command:
 npm run report:view
 
-# หรือระบุ path ที่ต้องการ:
+# Or specify a custom path:
 node scripts/view-report.js ./path/to/allure-report
 ```
 
-**วิธีที่ 2: เปิดไฟล์ HTML โดยตรง**
+**Method 2: Open HTML File Directly**
 
 ```bash
-# 1. แตกไฟล์ที่ดาวน์โหลดมา
-# 2. เปิดไฟล์ index.html ในโฟลเดอร์ allure-report
-#    - Windows: ดับเบิลคลิกที่ index.html
-#    - Mac: เปิดด้วย Safari หรือ browser อื่น
-#    - Linux: เปิดด้วย browser ที่ชอบ
+# 1. Extract the downloaded file
+# 2. Open index.html file in the allure-report folder
+#    - Windows: Double-click index.html
+#    - Mac: Open with Safari or another browser
+#    - Linux: Open with your preferred browser
 ```
 
-**วิธีที่ 3: ใช้ Local Server (ถ้า method 2 ไม่ทำงาน)**
+**Method 3: Use Local Server (If Method 2 Doesn't Work)**
 
 ```bash
-# ใช้ Python (ถ้ามี)
+# Using Python (if available)
 cd allure-report
 python -m http.server 8000
-# เปิด browser ไปที่: http://localhost:8000
+# Open browser at: http://localhost:8000
 
-# หรือใช้ Node.js http-server
+# Or using Node.js http-server
 npx http-server allure-report -p 8000
-# เปิด browser ไปที่: http://localhost:8000
+# Open browser at: http://localhost:8000
 ```
 
-**หมายเหตุ:**
+**Note:**
 
-- Allure reports ทำงานได้ดีที่สุดเมื่อเปิดผ่าน HTTP server
-- ถ้าเปิดไฟล์ HTML โดยตรงแล้วไม่แสดงผล ให้ใช้วิธีที่ 1 หรือ 3
+- Allure reports work best when opened through an HTTP server
+- If opening HTML file directly doesn't work, use Method 1 or 3
 
 ## 📁 Project Structure
 
@@ -182,38 +182,43 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) automatically:
 
 ### 📦 Setup Netlify Deployment
 
-**วิธีตั้งค่า Netlify สำหรับ Deploy Report อัตโนมัติ:**
+**How to configure Netlify for automatic report deployment:**
 
-1. **สร้าง Netlify Account และ Site**
-   - ไปที่ [Netlify](https://www.netlify.com/) และสร้าง account
-   - สร้าง site ใหม่ (New site from Git) หรือสร้าง site แบบ manual
+1. **Create Netlify Account and Site**
 
-2. **สร้าง Access Token**
-   - ไปที่: https://app.netlify.com/user/applications#personal-access-tokens
-   - คลิก "New access token"
-   - ตั้งชื่อ token (เช่น: "GitHub Actions Deploy")
-   - คัดลอก token ที่ได้ (จะแสดงแค่ครั้งเดียว!)
+   - Go to [Netlify](https://www.netlify.com/) and create an account
+   - Create a new site (New site from Git) or create a manual site
 
-3. **หา Site ID**
-   - ไปที่ Site settings → General → Site details
-   - คัดลอก "Site ID"
+2. **Create Access Token**
 
-4. **เพิ่ม Secrets ใน GitHub**
-   - ไปที่ Repository Settings → Secrets and variables → Actions
-   - คลิก "New repository secret"
-   - เพิ่ม 2 secrets:
-     - **Name**: `NETLIFY_AUTH_TOKEN` → **Value**: token ที่คัดลอกมา
-     - **Name**: `NETLIFY_SITE_ID` → **Value**: Site ID ที่คัดลอกมา
+   - Go to: https://app.netlify.com/user/applications#personal-access-tokens
+   - Click "New access token"
+   - Name the token (e.g., "GitHub Actions Deploy")
+   - Copy the token (it will only be shown once!)
 
-5. **ทดสอบ**
-   - Push code ไปที่ `main` branch
-   - Workflow จะ deploy report ไปที่ Netlify อัตโนมัติ
-   - ตรวจสอบ URL ใน Netlify dashboard
+3. **Get Site ID**
 
-**หมายเหตุ:** 
-- Report จะ deploy ทุกครั้งที่ push ไปที่ `main` branch
-- ถ้ายังไม่ได้ตั้งค่า Netlify secrets, workflow จะยังทำงานได้แต่จะข้าม deployment
-- คุณยังสามารถดาวน์โหลด report จาก Artifacts ได้
+   - Go to Site settings → General → Site details
+   - Copy the "Site ID"
+
+4. **Add Secrets to GitHub**
+
+   - Go to Repository Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Add 2 secrets:
+     - **Name**: `NETLIFY_AUTH_TOKEN` → **Value**: copied token
+     - **Name**: `NETLIFY_SITE_ID` → **Value**: copied Site ID
+
+5. **Test**
+   - Push code to `main` branch
+   - Workflow will automatically deploy report to Netlify
+   - Check URL in Netlify dashboard
+
+**Note:**
+
+- Report will deploy every time you push to `main` branch
+- If Netlify secrets are not configured, workflow will still run but skip deployment
+- You can still download report from Artifacts section
 
 ## 🏗️ Page Object Model
 
