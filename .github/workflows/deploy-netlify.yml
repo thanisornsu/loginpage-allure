@@ -1,4 +1,7 @@
-name: Deploy Allure Report to Netlify
+name: Deploy Allure Report to Netlify (Alternative)
+
+# This is an alternative workflow that runs after CI completes
+# The main CI workflow now includes Netlify deployment directly
 
 on:
   workflow_run:
@@ -38,4 +41,8 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "⚠️ Netlify secrets not configured"
+            exit 1
+          fi
           netlify deploy --prod --dir=allure-report --message="Deploy Allure Report from GitHub Actions"

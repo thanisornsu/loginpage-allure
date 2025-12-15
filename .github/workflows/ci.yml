@@ -80,7 +80,7 @@ jobs:
                 '✅ **Screenshot generated successfully!**\n\n' +
                 '📥 **Download the screenshot:** Check the **Artifacts** section on the right → Download `allure-report-screenshot`\n\n' +
                 `📊 **View full report:** [Download Allure Report](https://github.com/${repository}/actions/runs/${runId})\n\n` +
-                '🌐 **View online:** If GitHub Pages is enabled, report will be available at: `https://<username>.github.io/loginpage-allure/`\n\n' +
+                '🌐 **View online:** Report will be deployed to Netlify (if configured) or download from Artifacts\n\n' +
                 '> 💡 **Tip:** The screenshot shows a visual summary of all test results, including pass/fail status and execution charts.';
               
               fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
@@ -111,16 +111,11 @@ jobs:
               });
             }
 
-  deploy-report:
-    name: Deploy Allure Report
+  deploy-netlify:
+    name: Deploy Allure Report to Netlify
     runs-on: ubuntu-latest
     needs: test
     if: always() && github.ref == 'refs/heads/main'
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    # Don't fail the workflow if this job fails
     continue-on-error: true
 
     steps:
@@ -134,59 +129,46 @@ jobs:
           path: allure-report/
         continue-on-error: true
 
-      - name: Check if Pages is enabled
-        id: check-pages
-        uses: actions/github-script@v7
-        continue-on-error: true
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          script: |
-            try {
-              const response = await github.rest.repos.getPages({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-              });
-              core.setOutput('enabled', 'true');
-              core.setOutput('url', response.data.html_url || '');
-              console.log('✅ GitHub Pages is enabled');
-            } catch (error) {
-              core.setOutput('enabled', 'false');
-              console.log('⚠️ GitHub Pages is not enabled');
-              console.log('📝 Please enable it at: https://github.com/${{ github.repository }}/settings/pages');
-            }
+          node-version: "20"
 
-      - name: Setup Pages
-        if: steps.check-pages.outputs.enabled == 'true'
-        uses: actions/configure-pages@v4
-        continue-on-error: true
+      - name: Install Netlify CLI
+        run: npm install -g netlify-cli
 
-      - name: Upload artifact
-        if: steps.check-pages.outputs.enabled == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: allure-report/
-        continue-on-error: true
-
-      - name: Deploy to GitHub Pages
-        if: steps.check-pages.outputs.enabled == 'true'
-        id: deployment
-        uses: actions/deploy-pages@v4
-        continue-on-error: true
+      - name: Deploy to Netlify
+        id: netlify-deploy
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "⚠️ Netlify secrets not configured. Skipping deployment."
+            echo ""
+            echo "📝 To enable Netlify deployment:"
+            echo "   1. Go to: https://app.netlify.com/user/applications#personal-access-tokens"
+            echo "   2. Create a new access token"
+            echo "   3. Go to your site settings → General → Site details"
+            echo "   4. Copy the Site ID"
+            echo "   5. Add secrets to GitHub:"
+            echo "      - NETLIFY_AUTH_TOKEN: Your access token"
+            echo "      - NETLIFY_SITE_ID: Your site ID"
+            echo "   6. Repository Settings → Secrets and variables → Actions"
+            exit 0
+          fi
+          
+          netlify deploy --prod --dir=allure-report --message="Deploy Allure Report from GitHub Actions - ${{ github.sha }}"
+          echo "✅ Report deployed successfully to Netlify!"
+          echo "🌐 Check your Netlify dashboard for the live URL"
 
       - name: Deployment Status
         if: always()
         run: |
-          if [ "${{ steps.check-pages.outputs.enabled }}" == "true" ] && [ "${{ steps.deployment.outcome }}" == "success" ]; then
-            echo "✅ Report deployed successfully to GitHub Pages!"
-            echo "🌐 View at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          if [ "${{ steps.netlify-deploy.outcome }}" == "success" ] && [ -n "${{ secrets.NETLIFY_AUTH_TOKEN }}" ]; then
+            echo "✅ Allure Report deployed to Netlify!"
+            echo "🌐 Check your Netlify dashboard for the live URL"
           else
-            echo "⚠️ GitHub Pages deployment skipped."
-            echo ""
-            echo "📝 To enable GitHub Pages:"
-            echo "   1. Go to: https://github.com/${{ github.repository }}/settings/pages"
-            echo "   2. Under 'Source', select 'GitHub Actions'"
-            echo "   3. Save the settings"
-            echo "   4. The report will deploy automatically on next push"
-            echo ""
-            echo "📥 You can still download the report from Artifacts section"
+            echo "📥 Report available as artifact. Download from Actions → Artifacts"
             echo "   Or use: npm run report:view (after downloading)"
           fi
