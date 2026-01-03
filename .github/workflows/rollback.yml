@@ -1,0 +1,236 @@
+name: CD - Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      deployment_id:
+        description: 'Netlify Deployment ID to rollback to (optional - leave empty to rollback to previous)'
+        required: false
+        type: string
+
+jobs:
+  rollback-staging:
+    name: Rollback Staging Deployment
+    runs-on: ubuntu-latest
+    if: github.event.inputs.environment == 'staging'
+    environment:
+      name: staging
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Netlify CLI
+        run: npm install -g netlify-cli
+
+      - name: Get Deployment History
+        id: get-deployments
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_STAGING_SITE_ID }}
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "⚠️ Netlify staging secrets not configured."
+            exit 1
+          fi
+
+          # Get list of recent deployments
+          echo "📋 Fetching deployment history..."
+          deployments=$(netlify api listSiteDeploys --data "{\"site_id\":\"$NETLIFY_SITE_ID\"}" --json)
+          echo "deployments<<EOF" >> $GITHUB_OUTPUT
+          echo "$deployments" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Rollback to Previous Deployment
+        id: rollback
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_STAGING_SITE_ID }}
+          DEPLOYMENT_ID: ${{ github.event.inputs.deployment_id }}
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "⚠️ Netlify staging secrets not configured."
+            exit 1
+          fi
+
+          if [ -n "$DEPLOYMENT_ID" ]; then
+            echo "🔄 Rolling back to specific deployment: $DEPLOYMENT_ID"
+            netlify api restoreSiteDeploy --data "{\"deploy_id\":\"$DEPLOYMENT_ID\"}"
+            echo "✅ Rolled back to deployment: $DEPLOYMENT_ID"
+            echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          else
+            echo "🔄 Rolling back to previous deployment..."
+            # Get the previous deployment (second in the list, first is current)
+            previous_deploy=$(netlify api listSiteDeploys --data "{\"site_id\":\"$NETLIFY_SITE_ID\"}" --json | jq -r '.[1].id')
+            if [ -z "$previous_deploy" ] || [ "$previous_deploy" == "null" ]; then
+              echo "❌ No previous deployment found to rollback to"
+              exit 1
+            fi
+            echo "Previous deployment ID: $previous_deploy"
+            netlify api restoreSiteDeploy --data "{\"deploy_id\":\"$previous_deploy\"}"
+            echo "✅ Rolled back to previous deployment: $previous_deploy"
+            echo "deployment_id=$previous_deploy" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Rollback Status - Staging
+        if: always()
+        run: |
+          if [ "${{ steps.rollback.outcome }}" == "success" ]; then
+            echo "✅ Staging deployment rolled back successfully!"
+            echo "🔄 Deployment ID: ${{ steps.rollback.outputs.deployment_id }}"
+            echo "🌐 Staging URL: https://${{ secrets.NETLIFY_STAGING_SITE_ID }}.netlify.app"
+          else
+            echo "❌ Rollback failed. Check the logs above for details."
+          fi
+
+      - name: Send Rollback Notification - Staging
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          ROLLBACK_STATUS: ${{ steps.rollback.outcome }}
+          ENVIRONMENT: staging
+          DEPLOYMENT_ID: ${{ steps.rollback.outputs.deployment_id }}
+        with:
+          script: |
+            const status = process.env.ROLLBACK_STATUS;
+            const env = process.env.ENVIRONMENT;
+            const deployId = process.env.DEPLOYMENT_ID;
+            const isSuccess = status === 'success';
+            
+            const emoji = isSuccess ? '✅' : '❌';
+            const statusText = isSuccess ? 'SUCCESS' : 'FAILED';
+            
+            const message = `${emoji} **Rollback ${statusText}**\n\n` +
+              `**Environment:** ${env}\n` +
+              `**Deployment ID:** ${deployId || 'N/A'}\n` +
+              `**Workflow:** ${context.workflow}\n` +
+              `**Run:** [View Details](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+            
+            const fs = require('fs');
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## ${emoji} Rollback Notification\n\n${message}\n\n`);
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+  rollback-production:
+    name: Rollback Production Deployment
+    runs-on: ubuntu-latest
+    if: github.event.inputs.environment == 'production'
+    environment:
+      name: production
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Netlify CLI
+        run: npm install -g netlify-cli
+
+      - name: Get Deployment History
+        id: get-deployments
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "⚠️ Netlify secrets not configured."
+            exit 1
+          fi
+
+          # Get list of recent deployments
+          echo "📋 Fetching deployment history..."
+          deployments=$(netlify api listSiteDeploys --data "{\"site_id\":\"$NETLIFY_SITE_ID\"}" --json)
+          echo "deployments<<EOF" >> $GITHUB_OUTPUT
+          echo "$deployments" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Rollback to Previous Deployment
+        id: rollback
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          DEPLOYMENT_ID: ${{ github.event.inputs.deployment_id }}
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "⚠️ Netlify secrets not configured."
+            exit 1
+          fi
+
+          if [ -n "$DEPLOYMENT_ID" ]; then
+            echo "🔄 Rolling back to specific deployment: $DEPLOYMENT_ID"
+            netlify api restoreSiteDeploy --data "{\"deploy_id\":\"$DEPLOYMENT_ID\"}"
+            echo "✅ Rolled back to deployment: $DEPLOYMENT_ID"
+            echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          else
+            echo "🔄 Rolling back to previous deployment..."
+            # Get the previous deployment (second in the list, first is current)
+            previous_deploy=$(netlify api listSiteDeploys --data "{\"site_id\":\"$NETLIFY_SITE_ID\"}" --json | jq -r '.[1].id')
+            if [ -z "$previous_deploy" ] || [ "$previous_deploy" == "null" ]; then
+              echo "❌ No previous deployment found to rollback to"
+              exit 1
+            fi
+            echo "Previous deployment ID: $previous_deploy"
+            netlify api restoreSiteDeploy --data "{\"deploy_id\":\"$previous_deploy\"}"
+            echo "✅ Rolled back to previous deployment: $previous_deploy"
+            echo "deployment_id=$previous_deploy" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Rollback Status - Production
+        if: always()
+        run: |
+          if [ "${{ steps.rollback.outcome }}" == "success" ]; then
+            echo "✅ Production deployment rolled back successfully!"
+            echo "🔄 Deployment ID: ${{ steps.rollback.outputs.deployment_id }}"
+            echo "🌐 Production URL: https://${{ secrets.NETLIFY_SITE_ID }}.netlify.app"
+          else
+            echo "❌ Rollback failed. Check the logs above for details."
+          fi
+
+      - name: Send Rollback Notification - Production
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          ROLLBACK_STATUS: ${{ steps.rollback.outcome }}
+          ENVIRONMENT: production
+          DEPLOYMENT_ID: ${{ steps.rollback.outputs.deployment_id }}
+        with:
+          script: |
+            const status = process.env.ROLLBACK_STATUS;
+            const env = process.env.ENVIRONMENT;
+            const deployId = process.env.DEPLOYMENT_ID;
+            const isSuccess = status === 'success';
+            
+            const emoji = isSuccess ? '✅' : '❌';
+            const statusText = isSuccess ? 'SUCCESS' : 'FAILED';
+            
+            const message = `${emoji} **Rollback ${statusText}**\n\n` +
+              `**Environment:** ${env}\n` +
+              `**Deployment ID:** ${deployId || 'N/A'}\n` +
+              `**Workflow:** ${context.workflow}\n` +
+              `**Run:** [View Details](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+            
+            const fs = require('fs');
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## ${emoji} Rollback Notification\n\n${message}\n\n`);
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+

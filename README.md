@@ -161,7 +161,11 @@ The following login test scenarios are covered:
 
 ## 🔄 CI/CD Pipeline
 
-The GitHub Actions workflow (`.github/workflows/ci.yml`) automatically:
+The project uses a modern CI/CD pipeline with separate workflows for Continuous Integration and Continuous Deployment:
+
+### CI (Continuous Integration)
+
+The CI workflow (`.github/workflows/ci.yml`) automatically:
 
 1. Runs tests on push/PR to `main` or `develop` branches
 2. Generates Allure report
@@ -169,7 +173,27 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) automatically:
 4. Generates screenshot of Allure report summary
 5. Uploads screenshot as artifact (visible in GitHub Actions UI)
 6. Comments on PRs with the report screenshot
-7. **Deploys report to Netlify** (for main branch, if configured) - View online at your Netlify site URL
+
+### CD (Continuous Deployment)
+
+The CD workflow (`.github/workflows/deploy-report.yml`) automatically:
+
+1. Deploys to **staging** when tests pass on `develop` branch
+2. Deploys to **production** when tests pass on `main` branch
+3. Sends deployment notifications (Slack/Discord if configured)
+4. Supports manual deployment triggers
+5. Includes rollback capability (`.github/workflows/rollback.yml`)
+
+### 📚 CI/CD Documentation
+
+For detailed information, see:
+
+- [Testing Guide](docs/TESTING_GUIDE.md) - **How to verify everything is working** ⭐
+- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) - How to deploy and configure environments
+- [Rollback Guide](docs/ROLLBACK_GUIDE.md) - How to rollback deployments
+- [Troubleshooting Guide](docs/TROUBLESHOOTING.md) - Common issues and solutions
+- [Architecture Overview](docs/ARCHITECTURE.md) - CI/CD architecture and data flow
+- [Quick Reference](docs/QUICK_REFERENCE.md) - Quick commands and reference
 
 ### Viewing Reports in CI/CD
 

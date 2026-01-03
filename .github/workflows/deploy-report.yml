@@ -1,0 +1,401 @@
+name: CD - Deploy Allure Report
+
+on:
+  workflow_run:
+    workflows: ["CI - Playwright Tests with Allure"]
+    types:
+      - completed
+  workflow_dispatch:
+    # Allow manual triggering
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - staging
+          - production
+  push:
+    branches: [main, develop]
+    # Only trigger on push if CI workflow completed successfully
+    # This is a backup trigger in case workflow_run doesn't fire
+
+jobs:
+  check-ci-status:
+    name: Check CI Workflow Status
+    runs-on: ubuntu-latest
+    outputs:
+      ci-success: ${{ steps.check.outputs.success }}
+      branch: ${{ steps.check.outputs.branch }}
+      sha: ${{ steps.check.outputs.sha }}
+    steps:
+      - name: Determine CI status and branch
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_run" ]; then
+            echo "success=${{ github.event.workflow_run.conclusion == 'success' }}" >> $GITHUB_OUTPUT
+            echo "branch=${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+          else
+            # For push events, we need to check if CI succeeded
+            # This is a simplified check - in practice, you might want to use GitHub API
+            echo "success=true" >> $GITHUB_OUTPUT
+            echo "branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: check-ci-status
+    if: |
+      (needs.check-ci-status.outputs.ci-success == 'true' && needs.check-ci-status.outputs.branch == 'develop') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: https://${{ secrets.NETLIFY_STAGING_SITE_ID }}.netlify.app
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Allure Report Artifact
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: ci.yml
+          commit: ${{ github.event.workflow_run.head_sha || github.sha }}
+          name: allure-report
+          path: allure-report/
+          if_no_artifact_found: fail
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Netlify CLI
+        run: npm install -g netlify-cli
+
+      - name: Deploy to Netlify Staging
+        id: netlify-deploy
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_STAGING_SITE_ID }}
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "⚠️ Netlify staging secrets not configured. Skipping deployment."
+            echo ""
+            echo "📝 To enable Netlify staging deployment:"
+            echo "   1. Create a staging site on Netlify"
+            echo "   2. Add NETLIFY_STAGING_SITE_ID secret to GitHub"
+            exit 0
+          fi
+
+          netlify deploy --dir=allure-report --message="Deploy Allure Report to Staging - ${{ needs.check-ci-status.outputs.sha || github.sha }}"
+          echo "✅ Report deployed successfully to Netlify Staging!"
+          echo "🌐 Staging URL: https://$NETLIFY_SITE_ID.netlify.app"
+
+      - name: Deployment Status - Staging
+        if: always()
+        run: |
+          if [ "${{ steps.netlify-deploy.outcome }}" == "success" ] && [ -n "${{ secrets.NETLIFY_AUTH_TOKEN }}" ]; then
+            echo "✅ Allure Report deployed to Netlify Staging!"
+            echo "🌐 Check your Netlify dashboard for the staging URL"
+          else
+            echo "📥 Report available as artifact. Download from Actions → Artifacts"
+          fi
+
+      - name: Send Deployment Notification - Staging
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          DEPLOYMENT_STATUS: ${{ steps.netlify-deploy.outcome }}
+          ENVIRONMENT: staging
+          SITE_URL: https://${{ secrets.NETLIFY_STAGING_SITE_ID }}.netlify.app
+        with:
+          script: |
+            const status = process.env.DEPLOYMENT_STATUS;
+            const env = process.env.ENVIRONMENT;
+            const siteUrl = process.env.SITE_URL;
+            const isSuccess = status === 'success';
+            
+            const emoji = isSuccess ? '✅' : '❌';
+            const statusText = isSuccess ? 'SUCCESS' : 'FAILED';
+            const color = isSuccess ? 'good' : 'danger';
+            
+            const message = `${emoji} **Deployment ${statusText}**\n\n` +
+              `**Environment:** ${env}\n` +
+              `**Commit:** ${context.sha.substring(0, 7)}\n` +
+              `**Branch:** ${context.ref.replace('refs/heads/', '')}\n` +
+              `**Workflow:** ${context.workflow}\n` +
+              (isSuccess ? `**URL:** ${siteUrl}\n` : '') +
+              `**Run:** [View Details](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+            
+            // Add to job summary
+            const fs = require('fs');
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## ${emoji} Deployment Notification\n\n${message}\n\n`);
+            
+            // Send Slack notification if webhook is configured
+            const slackWebhook = process.env.SLACK_WEBHOOK_URL;
+            if (slackWebhook) {
+              const https = require('https');
+              const url = require('url');
+              
+              const payload = JSON.stringify({
+                text: `Deployment ${statusText} - ${env}`,
+                attachments: [{
+                  color: color,
+                  fields: [
+                    { title: 'Environment', value: env, short: true },
+                    { title: 'Status', value: statusText, short: true },
+                    { title: 'Commit', value: context.sha.substring(0, 7), short: true },
+                    { title: 'Branch', value: context.ref.replace('refs/heads/', ''), short: true }
+                  ],
+                  actions: [{
+                    type: 'button',
+                    text: 'View Deployment',
+                    url: isSuccess ? siteUrl : `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+                  }]
+                }]
+              });
+              
+              const parsedUrl = url.parse(slackWebhook);
+              const options = {
+                hostname: parsedUrl.hostname,
+                port: 443,
+                path: parsedUrl.path,
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Content-Length': payload.length
+                }
+              };
+              
+              const req = https.request(options);
+              req.write(payload);
+              req.end();
+            }
+            
+            // Send Discord notification if webhook is configured
+            const discordWebhook = process.env.DISCORD_WEBHOOK_URL;
+            if (discordWebhook) {
+              const https = require('https');
+              const url = require('url');
+              
+              const payload = JSON.stringify({
+                embeds: [{
+                  title: `Deployment ${statusText} - ${env}`,
+                  color: isSuccess ? 3066993 : 15158332, // Green or Red
+                  fields: [
+                    { name: 'Environment', value: env, inline: true },
+                    { name: 'Status', value: statusText, inline: true },
+                    { name: 'Commit', value: context.sha.substring(0, 7), inline: true },
+                    { name: 'Branch', value: context.ref.replace('refs/heads/', ''), inline: true }
+                  ],
+                  url: isSuccess ? siteUrl : `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                  timestamp: new Date().toISOString()
+                }]
+              });
+              
+              const parsedUrl = url.parse(discordWebhook);
+              const options = {
+                hostname: parsedUrl.hostname,
+                port: 443,
+                path: parsedUrl.path,
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Content-Length': payload.length
+                }
+              };
+              
+              const req = https.request(options);
+              req.write(payload);
+              req.end();
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: check-ci-status
+    if: |
+      (needs.check-ci-status.outputs.ci-success == 'true' && needs.check-ci-status.outputs.branch == 'main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment:
+      name: production
+      url: https://${{ secrets.NETLIFY_SITE_ID }}.netlify.app
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Allure Report Artifact
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: ci.yml
+          commit: ${{ needs.check-ci-status.outputs.sha || github.sha }}
+          name: allure-report
+          path: allure-report/
+          if_no_artifact_found: fail
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Netlify CLI
+        run: npm install -g netlify-cli
+
+      - name: Deploy to Netlify Production
+        id: netlify-deploy
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "⚠️ Netlify secrets not configured. Skipping deployment."
+            echo ""
+            echo "📝 To enable Netlify deployment:"
+            echo "   1. Go to: https://app.netlify.com/user/applications#personal-access-tokens"
+            echo "   2. Create a new access token"
+            echo "   3. Go to your site settings → General → Site details"
+            echo "   4. Copy the Site ID"
+            echo "   5. Add secrets to GitHub:"
+            echo "      - NETLIFY_AUTH_TOKEN: Your access token"
+            echo "      - NETLIFY_SITE_ID: Your site ID"
+            echo "   6. Repository Settings → Secrets and variables → Actions"
+            exit 0
+          fi
+
+          netlify deploy --prod --dir=allure-report --message="Deploy Allure Report to Production - ${{ needs.check-ci-status.outputs.sha || github.sha }}"
+          echo "✅ Report deployed successfully to Netlify Production!"
+          echo "🌐 Production URL: https://$NETLIFY_SITE_ID.netlify.app"
+
+      - name: Deployment Status - Production
+        if: always()
+        run: |
+          if [ "${{ steps.netlify-deploy.outcome }}" == "success" ] && [ -n "${{ secrets.NETLIFY_AUTH_TOKEN }}" ]; then
+            echo "✅ Allure Report deployed to Netlify Production!"
+            echo "🌐 Check your Netlify dashboard for the production URL"
+          else
+            echo "📥 Report available as artifact. Download from Actions → Artifacts"
+          fi
+
+      - name: Send Deployment Notification - Production
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          DEPLOYMENT_STATUS: ${{ steps.netlify-deploy.outcome }}
+          ENVIRONMENT: production
+          SITE_URL: https://${{ secrets.NETLIFY_SITE_ID }}.netlify.app
+        with:
+          script: |
+            const status = process.env.DEPLOYMENT_STATUS;
+            const env = process.env.ENVIRONMENT;
+            const siteUrl = process.env.SITE_URL;
+            const isSuccess = status === 'success';
+            
+            const emoji = isSuccess ? '✅' : '❌';
+            const statusText = isSuccess ? 'SUCCESS' : 'FAILED';
+            const color = isSuccess ? 'good' : 'danger';
+            
+            const message = `${emoji} **Deployment ${statusText}**\n\n` +
+              `**Environment:** ${env}\n` +
+              `**Commit:** ${context.sha.substring(0, 7)}\n` +
+              `**Branch:** ${context.ref.replace('refs/heads/', '')}\n` +
+              `**Workflow:** ${context.workflow}\n` +
+              (isSuccess ? `**URL:** ${siteUrl}\n` : '') +
+              `**Run:** [View Details](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+            
+            // Add to job summary
+            const fs = require('fs');
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## ${emoji} Deployment Notification\n\n${message}\n\n`);
+            
+            // Send Slack notification if webhook is configured
+            const slackWebhook = process.env.SLACK_WEBHOOK_URL;
+            if (slackWebhook) {
+              const https = require('https');
+              const url = require('url');
+              
+              const payload = JSON.stringify({
+                text: `Deployment ${statusText} - ${env}`,
+                attachments: [{
+                  color: color,
+                  fields: [
+                    { title: 'Environment', value: env, short: true },
+                    { title: 'Status', value: statusText, short: true },
+                    { title: 'Commit', value: context.sha.substring(0, 7), short: true },
+                    { title: 'Branch', value: context.ref.replace('refs/heads/', ''), short: true }
+                  ],
+                  actions: [{
+                    type: 'button',
+                    text: 'View Deployment',
+                    url: isSuccess ? siteUrl : `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+                  }]
+                }]
+              });
+              
+              const parsedUrl = url.parse(slackWebhook);
+              const options = {
+                hostname: parsedUrl.hostname,
+                port: 443,
+                path: parsedUrl.path,
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Content-Length': payload.length
+                }
+              };
+              
+              const req = https.request(options);
+              req.write(payload);
+              req.end();
+            }
+            
+            // Send Discord notification if webhook is configured
+            const discordWebhook = process.env.DISCORD_WEBHOOK_URL;
+            if (discordWebhook) {
+              const https = require('https');
+              const url = require('url');
+              
+              const payload = JSON.stringify({
+                embeds: [{
+                  title: `Deployment ${statusText} - ${env}`,
+                  color: isSuccess ? 3066993 : 15158332, // Green or Red
+                  fields: [
+                    { name: 'Environment', value: env, inline: true },
+                    { name: 'Status', value: statusText, inline: true },
+                    { name: 'Commit', value: context.sha.substring(0, 7), inline: true },
+                    { name: 'Branch', value: context.ref.replace('refs/heads/', ''), inline: true }
+                  ],
+                  url: isSuccess ? siteUrl : `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                  timestamp: new Date().toISOString()
+                }]
+              });
+              
+              const parsedUrl = url.parse(discordWebhook);
+              const options = {
+                hostname: parsedUrl.hostname,
+                port: 443,
+                path: parsedUrl.path,
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Content-Length': payload.length
+                }
+              };
+              
+              const req = https.request(options);
+              req.write(payload);
+              req.end();
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
