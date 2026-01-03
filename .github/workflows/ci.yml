@@ -149,12 +149,18 @@ jobs:
           # but we populate it from NETLIFY_STAGING_SITE_ID secret (staging site)
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_STAGING_SITE_ID }}
         run: |
+          # Check if secrets are configured
+          # Note: NETLIFY_SITE_ID env var is populated from NETLIFY_STAGING_SITE_ID secret above
           if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
             echo "⚠️ Netlify staging secrets not configured. Skipping deployment."
             echo ""
             echo "📝 To enable Netlify staging deployment:"
             echo "   1. Create a staging site on Netlify"
             echo "   2. Add NETLIFY_STAGING_SITE_ID secret to GitHub"
+            echo ""
+            echo "🔍 Debug info:"
+            echo "   NETLIFY_AUTH_TOKEN: $([ -z "$NETLIFY_AUTH_TOKEN" ] && echo 'MISSING' || echo 'SET')"
+            echo "   NETLIFY_SITE_ID (from NETLIFY_STAGING_SITE_ID secret): $([ -z "$NETLIFY_SITE_ID" ] && echo 'MISSING' || echo 'SET')"
             exit 0
           fi
 
