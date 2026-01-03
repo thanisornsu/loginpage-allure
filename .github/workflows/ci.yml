@@ -141,17 +141,6 @@ jobs:
       - name: Install Netlify CLI
         run: npm install -g netlify-cli
 
-      - name: Verify Netlify Authentication
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-        run: |
-          echo "Verifying Netlify authentication..."
-          if netlify status --auth="$NETLIFY_AUTH_TOKEN" 2>/dev/null; then
-            echo "✅ Authentication successful"
-          else
-            echo "⚠️ Authentication check skipped (this is normal)"
-          fi
-
       - name: Deploy to Netlify Staging
         id: netlify-deploy
         env:
@@ -171,8 +160,28 @@ jobs:
 
           echo "🔍 Using staging site ID: $NETLIFY_SITE_ID"
           echo "🔍 Secret source: NETLIFY_STAGING_SITE_ID"
+          echo "🔍 Token length: ${#NETLIFY_AUTH_TOKEN} characters"
+
+          # Verify token format (should start with specific pattern)
+          if [[ ! "$NETLIFY_AUTH_TOKEN" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo "⚠️ Warning: Token format may be incorrect"
+          fi
+
+          # Try to authenticate and get site info first
+          echo "🔐 Attempting to authenticate with Netlify..."
+          if ! netlify api getSite --data "{\"site_id\":\"$NETLIFY_SITE_ID\"}" 2>&1 | head -5; then
+            echo "❌ Failed to authenticate or access site"
+            echo ""
+            echo "💡 Troubleshooting steps:"
+            echo "   1. Verify NETLIFY_AUTH_TOKEN is valid and not expired"
+            echo "   2. Regenerate token at: https://app.netlify.com/user/applications#personal-access-tokens"
+            echo "   3. Ensure token has access to site: $NETLIFY_SITE_ID"
+            echo "   4. Update NETLIFY_AUTH_TOKEN in GitHub Secrets"
+            exit 1
+          fi
 
           # Deploy to staging (NETLIFY_SITE_ID env var contains staging site ID)
+          echo "🚀 Starting deployment..."
           netlify deploy --dir=allure-report --site="$NETLIFY_SITE_ID" --message="Deploy Allure Report to Staging - ${{ github.sha }}"
 
           if [ $? -eq 0 ]; then
