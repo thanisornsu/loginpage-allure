@@ -156,6 +156,8 @@ jobs:
         id: netlify-deploy
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          # Note: NETLIFY_SITE_ID is the env var name Netlify CLI expects,
+          # but we populate it from NETLIFY_STAGING_SITE_ID secret (staging site)
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_STAGING_SITE_ID }}
         run: |
           if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
@@ -167,19 +169,20 @@ jobs:
             exit 0
           fi
 
-          # Set Netlify site ID explicitly
-          export NETLIFY_SITE_ID="$NETLIFY_SITE_ID"
+          echo "🔍 Using staging site ID: $NETLIFY_SITE_ID"
+          echo "🔍 Secret source: NETLIFY_STAGING_SITE_ID"
 
-          # Deploy to staging
+          # Deploy to staging (NETLIFY_SITE_ID env var contains staging site ID)
           netlify deploy --dir=allure-report --site="$NETLIFY_SITE_ID" --message="Deploy Allure Report to Staging - ${{ github.sha }}"
 
           if [ $? -eq 0 ]; then
             echo "✅ Report deployed successfully to Netlify Staging!"
             echo "🌐 Staging URL: https://$NETLIFY_SITE_ID.netlify.app"
+            echo "📝 Deployed using NETLIFY_STAGING_SITE_ID secret"
           else
             echo "❌ Deployment failed. Check token and site ID."
             echo "Token exists: $([ -n "$NETLIFY_AUTH_TOKEN" ] && echo 'yes' || echo 'no')"
-            echo "Site ID: $NETLIFY_SITE_ID"
+            echo "Staging Site ID (from NETLIFY_STAGING_SITE_ID): $NETLIFY_SITE_ID"
             exit 1
           fi
 
