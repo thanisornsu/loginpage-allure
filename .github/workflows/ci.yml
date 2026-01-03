@@ -141,6 +141,17 @@ jobs:
       - name: Install Netlify CLI
         run: npm install -g netlify-cli
 
+      - name: Verify Netlify Authentication
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          echo "Verifying Netlify authentication..."
+          if netlify status --auth="$NETLIFY_AUTH_TOKEN" 2>/dev/null; then
+            echo "✅ Authentication successful"
+          else
+            echo "⚠️ Authentication check skipped (this is normal)"
+          fi
+
       - name: Deploy to Netlify Staging
         id: netlify-deploy
         env:
@@ -156,9 +167,21 @@ jobs:
             exit 0
           fi
 
-          netlify deploy --dir=allure-report --message="Deploy Allure Report to Staging - ${{ github.sha }}"
-          echo "✅ Report deployed successfully to Netlify Staging!"
-          echo "🌐 Staging URL: https://$NETLIFY_SITE_ID.netlify.app"
+          # Set Netlify site ID explicitly
+          export NETLIFY_SITE_ID="$NETLIFY_SITE_ID"
+
+          # Deploy to staging
+          netlify deploy --dir=allure-report --site="$NETLIFY_SITE_ID" --message="Deploy Allure Report to Staging - ${{ github.sha }}"
+
+          if [ $? -eq 0 ]; then
+            echo "✅ Report deployed successfully to Netlify Staging!"
+            echo "🌐 Staging URL: https://$NETLIFY_SITE_ID.netlify.app"
+          else
+            echo "❌ Deployment failed. Check token and site ID."
+            echo "Token exists: $([ -n "$NETLIFY_AUTH_TOKEN" ] && echo 'yes' || echo 'no')"
+            echo "Site ID: $NETLIFY_SITE_ID"
+            exit 1
+          fi
 
       - name: Deployment Status - Staging
         if: always()
